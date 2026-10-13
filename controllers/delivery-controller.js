@@ -6,6 +6,17 @@ const Delivery = require('../models/delivery-schema.js');
 const Transaction = require('../models/transaction-schema.js');
 const Inventory = require('../models/inventory-schema.js');
 
+/* The handlers that change the status of a delivery (and of its transaction) are in handlers/. */
+const {
+	CancelledDeliveryHandler,
+	CompletedDeliveryHandler,
+	PendingDeliveryHandler
+} = require('../handlers/delivery-status-handlers.js');
+
+const cancelledDeliveryHandler = new CancelledDeliveryHandler();
+const completedDeliveryHandler = new CompletedDeliveryHandler();
+const pendingDeliveryHandler = new PendingDeliveryHandler();
+
 /* A utility object is used for auxiliary functions. */
 const deliveryControllerUtil = require('./delivery-controller-util.js');
 
@@ -76,38 +87,10 @@ const deliveryController = {
 	 *
 	 * @param {Express.Request} req  Object that contains information on the HTTP request from the client.
 	 * @param {Express.Response} res  Object that contains information on the HTTP response from the server.
+	 * @return {Promise<void>} Resolves when the response has been sent.
 	 */
 	postEditStatusCancelled: function(req, res) {
-		/* Retrieve the ID of the selected delivery. */
-		const deliveryId = req.body.deliveryId;
-
-		/* Set the status of the selected delivery to "Cancelled". */
-		const update = {status: 'cancelled'};
-
-		/* Use the retrieved delivery ID for database retrieval. */
-		const filter = {id: deliveryId};
-
-		/* Update the status of the delivery and its corresponding transaction. */
-		db.updateOne(Delivery, filter, update, function(flag) {
-			/* The transaction ID corresponding to a delivery has a starting digit of 1 and the same
-			 * succeeding digits as the delivery ID.
-			 */
-			const transactionId = parseInt(deliveryId) - 10000000;
-
-			/* Get the original status of the corresponding transaction. */
-			query = {id: transactionId};
-			projection = 'id status';
-
-			db.findOne(Transaction, query, projection, function(result) {
-				/* Assign the retrieved transaction details to the body of the request object
-				 * and set the status of the transaction to "Cancelled."
-				 */
-				req.body.transactionId = result.id;
-				req.body.transactionStatusOld = result.status;
-
-				transactionController.postEditStatusCancelled(req, res);
-			});
-		});
+		return cancelledDeliveryHandler.handle(req, res);
 	},
 
 	/**
@@ -115,38 +98,10 @@ const deliveryController = {
 	 *
 	 * @param {Express.Request} req  Object that contains information on the HTTP request from the client.
 	 * @param {Express.Response} res  Object that contains information on the HTTP response from the server.
+	 * @return {Promise<void>} Resolves when the response has been sent.
 	 */
 	postEditStatusCompleted: function(req, res) {
-		/* Retrieve the ID of the selected delivery. */
-		const deliveryId = req.body.deliveryId;
-
-		/* Set the status of the selected delivery to "Completed". */
-		const update = {status: 'completed'};
-
-		/* Use the retrieved delivery ID for database retrieval. */
-		const filter = {id: deliveryId};
-
-		/* Update the status of the delivery and its corresponding transaction. */
-		db.updateOne(Delivery, filter, update, function(flag) {
-			/* The transaction ID corresponding to a delivery has a starting digit of 1 and the same
-			 * succeeding digits as the delivery ID.
-			 */
-			const transactionId = parseInt(deliveryId) - 10000000;
-
-			/* Get the original status of the corresponding transaction. */
-			query = {id: transactionId};
-			projection = 'id status';
-
-			db.findOne(Transaction, query, projection, function(result) {
-				/* Assign the retrieved transaction details to the body of the request object
-				* and set the status of the transaction to "Completed."
-				*/
-				req.body.transactionId = result.id;
-				req.body.transactionStatusOld = result.status;
-
-				transactionController.postEditStatusCompleted(req, res);
-			});
-		});
+		return completedDeliveryHandler.handle(req, res);
 	},
 
 	/**
@@ -154,38 +109,10 @@ const deliveryController = {
 	 *
 	 * @param {Express.Request} req  Object that contains information on the HTTP request from the client.
 	 * @param {Express.Response} res  Object that contains information on the HTTP response from the server.
+	 * @return {Promise<void>} Resolves when the response has been sent.
 	 */
 	postEditStatusPending: function(req, res) {
-		/* Retrieve the ID of the selected delivery. */
-		const deliveryId = req.body.deliveryId;
-
-		/* Set the status of the selected delivery to "Pending". */
-		const update = {status: 'pending'};
-
-		/* Use the retrieved delivery ID for database retrieval. */
-		const filter = {id: deliveryId};
-
-		/* Update the status of the delivery and its corresponding transaction. */
-		db.updateOne(Delivery, filter, update, function(flag) {
-			/* The transaction ID corresponding to a delivery has a starting digit of 1 and the same
-			 * succeeding digits as the delivery ID.
-			 */
-			const transactionId = parseInt(deliveryId) - 10000000;
-
-			/* Get the original status of the corresponding transaction. */
-			query = {id: transactionId};
-			projection = 'id status';
-
-			db.findOne(Transaction, query, projection, function(result) {
-				/* Assign the retrieved transaction details to the body of the request object
-				 * and set the status of the transaction to "Pending."
-				 */
-				req.body.transactionId = result.id;
-				req.body.transactionStatusOld = result.status;
-
-				transactionController.postEditStatusPending(req, res);
-			});
-		});
+		return pendingDeliveryHandler.handle(req, res);
 	},
 
 	/**
