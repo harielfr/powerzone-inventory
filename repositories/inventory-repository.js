@@ -18,11 +18,12 @@ class InventoryRepository {
 	/**
 	 * Retrieves the type, date, and quantities of all inventory stocks.
 	 *
-	 * @return {Promise<Object[]>} Resolves with the stocks, or false if the retrieval failed.
+	 * @return {Promise<Object[]>} Resolves with the stocks, or with an empty list if the retrieval failed (as
+	 * the original code, which treated a failed retrieval as having no stocks).
 	 */
 	findAll() {
 		return new Promise((resolve) => {
-			this.db.findMany(Inventory, {}, STOCK_PROJECTION, resolve);
+			this.db.findMany(Inventory, {}, STOCK_PROJECTION, (result) => resolve(result || []));
 		});
 	}
 

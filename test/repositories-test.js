@@ -46,10 +46,10 @@ describe('the inventory repository', function() {
 		assert.isTrue(db.findMany.calledOnceWithExactly(Inventory, {}, '_id type date quantityPurchased quantityDepleted', sinon.match.func));
 	});
 
-	it('should resolve with false if the retrieval fails', async function() {
+	it('should resolve with an empty list if the retrieval fails', async function() {
 		db.findMany.callsFake((model, query, projection, callback) => callback(false));
 
-		assert.isFalse(await repo.findAll());
+		assert.deepEqual(await repo.findAll(), []);
 	});
 
 	it('should save the depleted quantity once per stock', function() {
