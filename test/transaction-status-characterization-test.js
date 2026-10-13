@@ -150,7 +150,7 @@ describe('caracterização da edição de status da transação', function() {
 		initial = initialDepletion(stockList);
 	}
 
-	beforeEach(function() {
+	beforeEach(async function() {
 		res = {
 			status: sinon.stub().returnsThis(),
 			json: sinon.stub(),
@@ -177,29 +177,29 @@ describe('caracterização da edição de status da transação', function() {
 	describe('postEditStatusCancelled', function() {
 		['pending', 'completed'].forEach(function(oldStatus) {
 			describe(oldStatus + ' -> cancelled', function() {
-				beforeEach(function() {
+				beforeEach(async function() {
 					transaction = Object.assign({}, TRANSACTION_TO_RETURN);
-					transactionController.postEditStatusCancelled(request(oldStatus), res);
+					await transactionController.postEditStatusCancelled(request(oldStatus), res);
 				});
 
-				it('devolve o estoque (FIFO) a partir do lote mais recente, para cada tipo de combustível', function() {
+				it('devolve o estoque (FIFO) a partir do lote mais recente, para cada tipo de combustível', async function() {
 					expect(finalDepletion()).to.deep.equal(EXPECTED_AFTER_RETURN);
 				});
 
-				it('atualiza a transação e a entrega (id + 10000000) para cancelled', function() {
+				it('atualiza a transação e a entrega (id + 10000000) para cancelled', async function() {
 					expectTransactionAndDeliveryUpdated('cancelled');
 				});
 
-				it('responde 200', function() {
+				it('responde 200', async function() {
 					expectSuccessResponse();
 				});
 			});
 		});
 
-		it('pending -> cancelled devolve a um único lote parcialmente, sem tocar nos anteriores', function() {
+		it('pending -> cancelled devolve a um único lote parcialmente, sem tocar nos anteriores', async function() {
 			transaction = transactionWith({litersGasoline: 10});
 
-			transactionController.postEditStatusCancelled(request('pending'), res);
+			await transactionController.postEditStatusCancelled(request('pending'), res);
 
 			const depletion = finalDepletion();
 			expect(depletion['g-new']).to.equal(20);
@@ -208,8 +208,8 @@ describe('caracterização da edição de status da transação', function() {
 			expectSuccessResponse();
 		});
 
-		it('cancelled -> cancelled não altera o estoque, mas atualiza a entrega e responde 200', function() {
-			transactionController.postEditStatusCancelled(request('cancelled'), res);
+		it('cancelled -> cancelled não altera o estoque, mas atualiza a entrega e responde 200', async function() {
+			await transactionController.postEditStatusCancelled(request('cancelled'), res);
 
 			expectNoStockChange();
 			expectTransactionAndDeliveryUpdated('cancelled');
@@ -223,28 +223,28 @@ describe('caracterização da edição de status da transação', function() {
 	].forEach(function(scenario) {
 		describe(scenario.handler, function() {
 			describe('cancelled -> ' + scenario.newStatus, function() {
-				beforeEach(function() {
+				beforeEach(async function() {
 					transaction = Object.assign({}, TRANSACTION_TO_CONSUME);
-					transactionController[scenario.handler](request('cancelled'), res);
+					await transactionController[scenario.handler](request('cancelled'), res);
 				});
 
-				it('consome o estoque (FIFO) a partir do lote mais antigo, para cada tipo de combustível', function() {
+				it('consome o estoque (FIFO) a partir do lote mais antigo, para cada tipo de combustível', async function() {
 					expect(finalDepletion()).to.deep.equal(EXPECTED_AFTER_CONSUME);
 				});
 
-				it('atualiza a transação e a entrega (id + 10000000) para ' + scenario.newStatus, function() {
+				it('atualiza a transação e a entrega (id + 10000000) para ' + scenario.newStatus, async function() {
 					expectTransactionAndDeliveryUpdated(scenario.newStatus);
 				});
 
-				it('responde 200', function() {
+				it('responde 200', async function() {
 					expectSuccessResponse();
 				});
 			});
 
-			it('cancelled -> ' + scenario.newStatus + ' consome parcialmente o lote mais antigo com saldo', function() {
+			it('cancelled -> ' + scenario.newStatus + ' consome parcialmente o lote mais antigo com saldo', async function() {
 				transaction = transactionWith({litersDiesel: 25});
 
-				transactionController[scenario.handler](request('cancelled'), res);
+				await transactionController[scenario.handler](request('cancelled'), res);
 
 				const depletion = finalDepletion();
 				expect(depletion['d-old']).to.equal(175);
@@ -253,8 +253,8 @@ describe('caracterização da edição de status da transação', function() {
 			});
 
 			scenario.noEffect.forEach(function(oldStatus) {
-				it(oldStatus + ' -> ' + scenario.newStatus + ' não altera o estoque, mas atualiza a entrega e responde 200', function() {
-					transactionController[scenario.handler](request(oldStatus), res);
+				it(oldStatus + ' -> ' + scenario.newStatus + ' não altera o estoque, mas atualiza a entrega e responde 200', async function() {
+					await transactionController[scenario.handler](request(oldStatus), res);
 
 					expectNoStockChange();
 					expectTransactionAndDeliveryUpdated(scenario.newStatus);
@@ -265,13 +265,13 @@ describe('caracterização da edição de status da transação', function() {
 	});
 
 	describe('lote de tipo desconhecido', function() {
-		it('é tratado como kerosene: cancelled -> pending consome dele primeiro por ser o mais antigo', function() {
+		it('é tratado como kerosene: cancelled -> pending consome dele primeiro por ser o mais antigo', async function() {
 			useStocks(buildStocks().concat([
 				{_id: 'unknown', type: 'biodiesel', date: new Date('2021-12-01'), quantityPurchased: 100, quantityDepleted: 90}
 			]));
 			transaction = transactionWith({litersKerosene: 30});
 
-			transactionController.postEditStatusPending(request('cancelled'), res);
+			await transactionController.postEditStatusPending(request('cancelled'), res);
 
 			const depletion = finalDepletion();
 			expect(depletion['unknown']).to.equal(100); // 90 + 10
@@ -288,10 +288,10 @@ describe('caracterização da edição de status da transação', function() {
 			{handler: 'postEditStatusCompleted', newStatus: 'completed'},
 			{handler: 'postEditStatusPending', newStatus: 'pending'}
 		].forEach(function(scenario) {
-			it(scenario.handler + ' não altera o estoque, mas atualiza a entrega e responde 200', function() {
+			it(scenario.handler + ' não altera o estoque, mas atualiza a entrega e responde 200', async function() {
 				transaction = Object.assign({}, TRANSACTION_TO_CONSUME);
 
-				transactionController[scenario.handler](request(undefined), res);
+				await transactionController[scenario.handler](request(undefined), res);
 
 				expectNoStockChange();
 				expectTransactionAndDeliveryUpdated(scenario.newStatus);
