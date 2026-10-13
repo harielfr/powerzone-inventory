@@ -79,12 +79,12 @@ describe('the abstract status change handler', function() {
 
 describe('the transaction status handlers', function() {
 	const cases = [
-		{name: 'cancelled', Handler: CancelledTransactionHandler},
-		{name: 'completed', Handler: CompletedTransactionHandler},
-		{name: 'pending', Handler: PendingTransactionHandler}
+		{name: 'cancelled', Handler: CancelledTransactionHandler, oldStatus: 'pending'},
+		{name: 'completed', Handler: CompletedTransactionHandler, oldStatus: 'cancelled'},
+		{name: 'pending', Handler: PendingTransactionHandler, oldStatus: 'cancelled'}
 	];
 
-	cases.forEach(function({name, Handler}) {
+	cases.forEach(function({name, Handler, oldStatus}) {
 		describe('for the status "' + name + '"', function() {
 			let transactionRepo;
 			let deliveryRepo;
@@ -103,7 +103,7 @@ describe('the transaction status handlers', function() {
 				inventoryRepo = {};
 				stockService = {adjust: sinon.stub().resolves()};
 				res = createRes();
-				req = {body: {transactionId: '10000007', transactionStatusOld: 'pending'}};
+				req = {body: {transactionId: '10000007', transactionStatusOld: oldStatus}};
 			});
 
 			it('should update the status of the transaction, adjust the stocks, update the delivery, and respond, in that order', async function() {
@@ -127,10 +127,22 @@ describe('the transaction status handlers', function() {
 				assert.isTrue(transactionRepo.findById.calledOnceWithExactly('10000007', STOCK_PROJECTION));
 				assert.isTrue(stockService.adjust.calledOnceWithExactly({
 					transaction: transaction,
-					oldStatus: 'pending',
+					oldStatus: oldStatus,
 					newStatus: name
 				}, inventoryRepo));
 				assert.isTrue(deliveryRepo.updateStatus.calledOnceWithExactly(20000007, name));
+			});
+
+			it('should neither read the transaction nor adjust the stocks when the change does not affect them', async function() {
+				req.body.transactionStatusOld = name;
+
+				await new Handler({transactionRepo, deliveryRepo, inventoryRepo, stockService}).handle(req, res);
+
+				assert.isTrue(transactionRepo.findById.notCalled);
+				assert.isTrue(stockService.adjust.notCalled);
+				assert.isTrue(transactionRepo.updateStatus.calledOnceWithExactly('10000007', name));
+				assert.isTrue(deliveryRepo.updateStatus.calledOnceWithExactly(20000007, name));
+				assert.isTrue(res.send.calledOnce);
 			});
 
 			it('should respond with status 200 and the success message', async function() {

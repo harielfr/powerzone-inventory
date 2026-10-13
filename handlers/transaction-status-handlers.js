@@ -4,6 +4,8 @@ const InventoryRepository = require('../repositories/inventory-repository.js');
 const TransactionRepository = require('../repositories/transaction-repository.js');
 const DeliveryRepository = require('../repositories/delivery-repository.js');
 const ids = require('../repositories/ids.js');
+const {TransactionState} = require('../services/transaction-state.js');
+const {NoStockChange} = require('../services/stock-strategies.js');
 
 /* Fields of the transaction needed to adjust the stocks. */
 const STOCK_PROJECTION = 'id litersGasoline litersPremiumGasoline95 litersDiesel litersPremiumGasoline97 litersKerosene';
@@ -47,20 +49,26 @@ class TransactionStatusHandler extends StatusChangeHandler {
 	}
 
 	/**
-	 * Adjusts the stocks according to the status change, then updates the status of the delivery.
+	 * Adjusts the stocks according to the status change (only when the change affects them), then updates the
+	 * status of the delivery.
 	 *
 	 * @param {Express.Request} req  Object that contains information on the HTTP request from the client.
 	 * @return {Promise<boolean>} Resolves when the delivery has been updated.
 	 */
 	async propagate(req) {
 		const transactionId = req.body.transactionId;
-		const transaction = await this.transactionRepo.findById(transactionId, STOCK_PROJECTION);
+		const oldStatus = req.body.transactionStatusOld;
 
-		await this.stockService.adjust({
-			transaction: transaction,
-			oldStatus: req.body.transactionStatusOld,
-			newStatus: this.targetStatus
-		}, this.inventoryRepo);
+		/* As in the original code, the transaction is only read when the change affects the stocks. */
+		if (TransactionState.of(oldStatus).strategyFor(this.targetStatus) !== NoStockChange) {
+			const transaction = await this.transactionRepo.findById(transactionId, STOCK_PROJECTION);
+
+			await this.stockService.adjust({
+				transaction: transaction,
+				oldStatus: oldStatus,
+				newStatus: this.targetStatus
+			}, this.inventoryRepo);
+		}
 
 		return this.deliveryRepo.updateStatus(ids.transactionToDelivery(transactionId), this.targetStatus);
 	}
