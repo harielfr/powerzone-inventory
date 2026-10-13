@@ -71,6 +71,12 @@ function savedDepletion(repo) {
 }
 
 describe('StockService.adjust (services/stock-service.js)', function() {
+	it('exporta exatamente { adjust }, uma função async de 2 parâmetros', function() {
+		expect(Object.keys(StockService)).to.deep.equal(['adjust']);
+		expect(StockService.adjust.constructor.name).to.equal('AsyncFunction');
+		expect(StockService.adjust).to.have.lengthOf(2);
+	});
+
 	describe('transições sem efeito no estoque', function() {
 		const STATUSES = ['pending', 'completed', 'cancelled'];
 		const NO_EFFECT = [];
